@@ -27,11 +27,11 @@ def original_database_to_project_database(original_directory, output_directory):
         perspective_directory = os.path.join(original_directory, '{}_perspective'.format(data_type))
         os.makedirs(output_directory, exist_ok=True)
         for camera_name in os.listdir(label_directory):
-            print('Processing camera {}'.format(camera_name))
             camera_directory = os.path.join(label_directory, camera_name)
             if os.path.isdir(camera_directory) and not camera_name.startswith('.'):
+                print('Processing camera {}...'.format(camera_name))
                 perspective_path = os.path.join(perspective_directory, camera_name + '.mat')
-                perspective = scipy.io.loadmat(perspective_path)['pMap'].astype(np.float32)
+                perspective = load_mat(perspective_path)['pMap'].astype(np.float32)
                 roi_path = os.path.join(camera_directory, 'roi.mat')
                 roi = generate_roi_array(roi_path, perspective)
                 mat_list = [mat_file_name for mat_file_name in os.listdir(camera_directory)
@@ -41,7 +41,7 @@ def original_database_to_project_database(original_directory, output_directory):
                 for index, mat_file in enumerate(mat_list):
                     image_path = os.path.join(frame_directory, mat_file.replace('.mat', '.jpg'))
                     head_positions_path = os.path.join(camera_directory, mat_file)
-                    head_positions = scipy.io.loadmat(head_positions_path)['point_position']
+                    head_positions = load_mat(head_positions_path)['point_position']
                     label = generate_density_label(head_positions, perspective, roi)
                     image = scipy.ndimage.imread(image_path)
                     if images is None:
@@ -58,6 +58,22 @@ def original_database_to_project_database(original_directory, output_directory):
                 np.save(os.path.join(output_camera_directory, 'roi.npy'), roi)
 
 
+def load_mat(mat_file_path):
+    """
+    Load either format of mat files the same way.
+
+    :param mat_file_path: The path to the mat file.
+    :type mat_file_path: str
+    :return: The loaded mat dict.
+    :rtype: dict[T]
+    """
+    try:
+        return scipy.io.loadmat(mat_file_path)
+    except NotImplementedError:
+        with h5py.File(mat_file_path, 'r') as f:
+            return {key: value.value.transpose() for (key, value) in f.items()}
+
+
 def generate_roi_array(roi_path, size_array):
     """
     Generates the ROI array based on the polygon information.
@@ -69,7 +85,7 @@ def generate_roi_array(roi_path, size_array):
     :return: The ROI array.
     :rtype: np.ndarray
     """
-    roi_mat = scipy.io.loadmat(roi_path)
+    roi_mat = load_mat(roi_path)
     roi_x_list = roi_mat['maskVerticesXCoordinates'].flatten()
     roi_y_list = roi_mat['maskVerticesYCoordinates'].flatten()
     roi_vertex_list = zip(roi_y_list, roi_x_list)
@@ -94,7 +110,7 @@ def generate_density_label(head_positions, perspective, roi):
     """
     label = np.zeros_like(perspective, dtype=np.float32)
     for head_position in head_positions:
-        x, y = head_position
+        x, y = head_position.astype(np.uint32)
         if y >= roi.shape[0] or x >= roi.shape[1] or not roi[y, x]:
             global head_count_outside_roi
             head_count_outside_roi += 1
@@ -153,4 +169,4 @@ original_database_to_project_database(
     '/Users/golmschenk/Original World Expo Dataset',
     '/Users/golmschenk/World Expo Head Database'
 )
-print(head_count_outside_roi)
+print('{} head position labels ignored due to ROI.'.format(head_count_outside_roi))
