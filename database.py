@@ -10,6 +10,8 @@ from PIL import Image, ImageDraw
 
 head_standard_deviation_meters = 0.2
 head_count_outside_roi = 0
+incorrectly_labeled = ['200778_C10-03-S20100717083000000E20100717233000000_4_clip1_2',
+                       '200778_C10-03-S20100717083000000E20100717233000000_4_clip1_3']
 
 
 def original_database_to_project_database(original_directory, output_directory):
@@ -35,7 +37,8 @@ def original_database_to_project_database(original_directory, output_directory):
                 roi_path = os.path.join(camera_directory, 'roi.mat')
                 roi = generate_roi_array(roi_path, perspective)
                 mat_list = [mat_file_name for mat_file_name in os.listdir(camera_directory)
-                            if mat_file_name.endswith('.mat') and mat_file_name != 'roi.mat']
+                            if mat_file_name.endswith('.mat') and mat_file_name != 'roi.mat' and
+                            mat_file_name.replace('.mat', '') not in incorrectly_labeled]
                 images = None
                 labels = None
                 for index, mat_file in enumerate(mat_list):
