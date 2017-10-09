@@ -8,10 +8,11 @@ import scipy.ndimage
 import scipy.io
 from PIL import Image, ImageDraw
 
+from incorrectly_labeled import incorrectly_labeled
+
 head_standard_deviation_meters = 0.2
 head_count_outside_roi = 0
-incorrectly_labeled = ['200778_C10-03-S20100717083000000E20100717233000000_4_clip1_2',
-                       '200778_C10-03-S20100717083000000E20100717233000000_4_clip1_3']
+head_count = 0
 
 
 def original_database_to_project_database(original_directory, output_directory):
@@ -42,7 +43,10 @@ def original_database_to_project_database(original_directory, output_directory):
                 images = None
                 labels = None
                 for index, mat_file in enumerate(mat_list):
-                    image_path = os.path.join(frame_directory, mat_file.replace('.mat', '.jpg'))
+                    if data_type == 'test':
+                        image_path = os.path.join(frame_directory, camera_name, mat_file.replace('.mat', '.jpg'))
+                    else:
+                        image_path = os.path.join(frame_directory, mat_file.replace('.mat', '.jpg'))
                     head_positions_path = os.path.join(camera_directory, mat_file)
                     head_positions = load_mat(head_positions_path)['point_position']
                     label = generate_density_label(head_positions, perspective, roi)
@@ -111,11 +115,13 @@ def generate_density_label(head_positions, perspective, roi):
     :return: The density labeling.
     :rtype: np.ndarray
     """
+    global head_count
+    global head_count_outside_roi
     label = np.zeros_like(perspective, dtype=np.float32)
     for head_position in head_positions:
+        head_count += 1
         x, y = head_position.astype(np.uint32)
-        if y >= roi.shape[0] or x >= roi.shape[1] or not roi[y, x]:
-            global head_count_outside_roi
+        if not (0 <= y < roi.shape[0]) or not (0 <= x < roi.shape[1]) or not roi[y, x]:
             head_count_outside_roi += 1
             continue
         position_perspective = perspective[y, x]
@@ -172,4 +178,5 @@ original_database_to_project_database(
     '/Users/golmschenk/Original World Expo Dataset',
     '/Users/golmschenk/World Expo Head Database'
 )
+print('{} head positions identified.'.format(head_count))
 print('{} head position labels ignored due to ROI.'.format(head_count_outside_roi))
