@@ -14,22 +14,35 @@ def original_database_to_project_database(original_directory, output_directory):
     train_label_directory = os.path.join(original_directory, 'train_label')
     train_frame_directory = os.path.join(original_directory, 'train_frame')
     train_perspective_directory = os.path.join(original_directory, 'train_perspective')
+    os.makedirs(output_directory, exist_ok=True)
     for camera_name in os.listdir(train_label_directory):
         camera_directory = os.path.join(train_label_directory, camera_name)
         if os.path.isdir(camera_directory) and not camera_name.startswith('.'):
             perspective_path = os.path.join(train_perspective_directory, camera_name + '.mat')
-            perspective = scipy.io.loadmat(perspective_path)['pMap']
+            perspective = scipy.io.loadmat(perspective_path)['pMap'].astype(np.float32)
             roi_path = os.path.join(camera_directory, 'roi.mat')
             roi = generate_roi_array(roi_path, perspective)
-            for mat_file in os.listdir(camera_directory):
-                if mat_file.endswith('.mat') and mat_file != 'roi.mat':
-                    image_path = os.path.join(train_frame_directory, mat_file.replace('.mat', '.jpg'))
-                    head_positions_path = os.path.join(camera_directory, mat_file)
-                    head_positions = scipy.io.loadmat(head_positions_path)['point_position']
-                    label = generate_density_label(head_positions, perspective, roi)
-
-                    image = scipy.ndimage.imread(image_path)
-                    label = np.zeros_like([image.shape[0], image.shape[1]], dtype=np.float32)
+            mat_list = [mat_file_name for mat_file_name in os.listdir(camera_directory)
+                        if mat_file.endswith('.mat') and mat_file != 'roi.mat']
+            images = None
+            labels = None
+            for index, mat_file in enumerate(mat_list):
+                image_path = os.path.join(train_frame_directory, mat_file.replace('.mat', '.jpg'))
+                head_positions_path = os.path.join(camera_directory, mat_file)
+                head_positions = scipy.io.loadmat(head_positions_path)['point_position']
+                label = generate_density_label(head_positions, perspective, roi)
+                image = scipy.ndimage.imread(image_path)
+                if not images:
+                    images = np.zeros([len(mat_list), *image.shape], dtype=np.uint8)
+                    labels = np.zeros([len(mat_list), image.shape[0], image.shape[1]], dtype=np.float32)
+                images[index] = image
+                labels[index] = label
+            output_camera_directory = os.path.join(output_directory, camera_name)
+            os.makedirs(output_camera_directory)
+            np.save(os.path.join(output_camera_directory, 'images.npy'), images)
+            np.save(os.path.join(output_camera_directory, 'labels.npy'), labels)
+            np.save(os.path.join(output_camera_directory, 'perspective.npy'), perspective)
+            np.save(os.path.join(output_camera_directory, 'roi.npy'), roi)
 
 
 def generate_roi_array(roi_path, size_array):
