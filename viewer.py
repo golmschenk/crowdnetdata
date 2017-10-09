@@ -2,6 +2,7 @@
 Code for viewing the data.
 """
 
+import os
 import matplotlib.pyplot
 import matplotlib.cm
 import numpy as np
@@ -25,3 +26,10 @@ def show_example(image, label):
     matplotlib.pyplot.imshow(label_heatmap)
     matplotlib.pyplot.show()
 
+dataset_directory = '/Users/golmschenk/Desktop/world_expo_200741'
+images = np.load(os.path.join(dataset_directory, 'images.npy'), mmap_mode='r')
+labels = np.load(os.path.join(dataset_directory, 'labels.npy'), mmap_mode='r')
+show_example(images[0], labels[0])
+show_example(images[1], labels[1])
+show_example(images[-1], labels[-1])
+show_example(images[-2], labels[-2])
