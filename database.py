@@ -59,6 +59,9 @@ def original_database_to_project_database(original_directory, output_directory):
                 output_prefix = 'test_' if data_type == 'test' else ''
                 output_camera_directory = os.path.join(output_directory, output_prefix + camera_name)
                 os.makedirs(output_camera_directory, exist_ok=True)
+                if data_type == 'test' and images.shape[0] == 119:
+                    images = np.append(images, np.expand_dims(images[-1], axis=0), axis=0)
+                    labels = np.append(labels, np.expand_dims(labels[-1], axis=0), axis=0)
                 np.save(os.path.join(output_camera_directory, 'images.npy'), images)
                 np.save(os.path.join(output_camera_directory, 'labels.npy'), labels)
                 np.save(os.path.join(output_camera_directory, 'perspective.npy'), perspective)
