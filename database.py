@@ -166,20 +166,21 @@ def make_gaussian(standard_deviation=1.0):
     try:
         x_off_center_size = int(standard_deviation[0] * 2)
         y_off_center_size = int(standard_deviation[1] * 2)
-    except IndexError:
+    except (IndexError, TypeError):
         x_off_center_size = int(standard_deviation * 2)
         y_off_center_size = int(standard_deviation * 2)
     x_linspace = np.linspace(-x_off_center_size, x_off_center_size, x_off_center_size * 2 + 1)
     y_linspace = np.linspace(-y_off_center_size, y_off_center_size, y_off_center_size * 2 + 1)
     x, y = np.meshgrid(x_linspace, y_linspace)
     d = np.sqrt(x * x + y * y)
-    gaussian_array = np.exp(-(d**2 / 2.0))
+    gaussian_array = np.exp(-(d**2 / (2.0 * standard_deviation ** 2)))
     return gaussian_array
 
 
 original_database_to_project_database(
     '/Users/golmschenk/Original World Expo Dataset',
-    '/Users/golmschenk/World Expo Head Database'
+    '/Users/golmschenk/Head World Expo Database'
 )
+
 print('{} head positions identified.'.format(head_count))
 print('{} head position labels ignored due to ROI.'.format(head_count_outside_roi))
