@@ -149,7 +149,7 @@ def generate_density_label(head_positions, perspective):
                      ] = head_gaussian[y_start_offset:head_gaussian.shape[0] - y_end_offset,
                                        x_start_offset:head_gaussian.shape[1] - x_end_offset]
         body_x = x
-        body_y = y + (position_perspective * body_height_offset_meters)
+        body_y = y + int(position_perspective * body_height_offset_meters)
         body_width_standard_deviation = position_perspective * body_width_standard_deviation_meters
         body_height_standard_deviation = position_perspective * body_height_standard_deviation_meters
         body_gaussian = make_gaussian((body_width_standard_deviation, body_height_standard_deviation))
@@ -187,22 +187,25 @@ def make_gaussian(standard_deviation=1.0):
     :rtype: np.ndarray
     """
     try:
-        x_off_center_size = int(standard_deviation[0] * 2)
-        y_off_center_size = int(standard_deviation[1] * 2)
+        x_standard_deviation = standard_deviation[0]
+        y_standard_deviation = standard_deviation[1]
     except (IndexError, TypeError):
-        x_off_center_size = int(standard_deviation * 2)
-        y_off_center_size = int(standard_deviation * 2)
+        x_standard_deviation = standard_deviation
+        y_standard_deviation = standard_deviation
+    x_off_center_size = int(x_standard_deviation * 2)
+    y_off_center_size = int(y_standard_deviation * 2)
     x_linspace = np.linspace(-x_off_center_size, x_off_center_size, x_off_center_size * 2 + 1)
     y_linspace = np.linspace(-y_off_center_size, y_off_center_size, y_off_center_size * 2 + 1)
     x, y = np.meshgrid(x_linspace, y_linspace)
-    d = np.sqrt(x * x + y * y)
-    gaussian_array = np.exp(-(d**2 / (2.0 * standard_deviation ** 2)))
+    x_part = (x ** 2) / (2.0 * x_standard_deviation ** 2)
+    y_part = (y ** 2) / (2.0 * y_standard_deviation ** 2)
+    gaussian_array = np.exp(-(x_part + y_part))
     return gaussian_array
 
 
 original_database_to_project_database(
     '/Users/golmschenk/Original World Expo Dataset',
-    '/Users/golmschenk/Head World Expo Database'
+    '/Users/golmschenk/World Expo Database'
 )
 
 print('{} head positions identified.'.format(head_count))
