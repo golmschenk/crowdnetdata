@@ -11,7 +11,9 @@ from PIL import Image, ImageDraw
 from incorrectly_labeled import incorrectly_labeled
 
 head_standard_deviation_meters = 0.2
-head_count_outside_roi = 0
+body_width_standard_deviation_meters = 0.2
+body_height_standard_deviation_meters = 0.5
+body_height_offset_meters = 0.875
 head_count = 0
 
 
@@ -49,7 +51,7 @@ def original_database_to_project_database(original_directory, output_directory):
                         image_path = os.path.join(frame_directory, mat_file.replace('.mat', '.jpg'))
                     head_positions_path = os.path.join(camera_directory, mat_file)
                     head_positions = load_mat(head_positions_path)['point_position']
-                    label = generate_density_label(head_positions, perspective, roi)
+                    label = generate_density_label(head_positions, perspective)
                     image = scipy.ndimage.imread(image_path)
                     if images is None:
                         images = np.zeros([len(mat_list), *image.shape], dtype=np.uint8)
@@ -105,7 +107,7 @@ def generate_roi_array(roi_path, size_array):
     return roi
 
 
-def generate_density_label(head_positions, perspective, roi):
+def generate_density_label(head_positions, perspective):
     """
     Generates a density label given the head positions and other meta data.
 
@@ -113,23 +115,21 @@ def generate_density_label(head_positions, perspective, roi):
     :type head_positions: np.ndarray
     :param perspective: The perspective map.
     :type perspective: np.ndarray
-    :param roi: The region of interest map.
-    :type roi: np.ndarray
     :return: The density labeling.
     :rtype: np.ndarray
     """
     global head_count
-    global head_count_outside_roi
     label = np.zeros_like(perspective, dtype=np.float32)
     for head_position in head_positions:
         head_count += 1
         x, y = head_position.astype(np.uint32)
-        if not (0 <= y < roi.shape[0]) or not (0 <= x < roi.shape[1]) or not roi[y, x]:
-            head_count_outside_roi += 1
-            continue
-        position_perspective = perspective[y, x]
+        if 0 <= x < perspective.shape[1]:
+            position_perspective = perspective[y, x]
+        else:
+            position_perspective = perspective[y, 0]
         head_standard_deviation = position_perspective * head_standard_deviation_meters
         head_gaussian = make_gaussian(head_standard_deviation)
+        head_gaussian = head_gaussian / (2 * head_gaussian.sum())
         person_label = np.zeros_like(label, dtype=np.float32)
         off_center_size = int((head_gaussian.shape[0] - 1) / 2)
         y_start_offset = 0
@@ -148,9 +148,32 @@ def generate_density_label(head_positions, perspective, roi):
                      x - off_center_size + x_start_offset:x + off_center_size + 1 - x_end_offset
                      ] = head_gaussian[y_start_offset:head_gaussian.shape[0] - y_end_offset,
                                        x_start_offset:head_gaussian.shape[1] - x_end_offset]
-        person_label *= roi.astype(np.float32)
-        normalized_person_label = person_label / person_label.sum()
-        label += normalized_person_label
+        body_x = x
+        body_y = y + (position_perspective * body_height_offset_meters)
+        body_width_standard_deviation = position_perspective * body_width_standard_deviation_meters
+        body_height_standard_deviation = position_perspective * body_height_standard_deviation_meters
+        body_gaussian = make_gaussian((body_width_standard_deviation, body_height_standard_deviation))
+        body_gaussian = body_gaussian / (2 * body_gaussian.sum())
+        person_label = np.zeros_like(label, dtype=np.float32)
+        x_off_center_size = int((body_gaussian.shape[1] - 1) / 2)
+        y_off_center_size = int((body_gaussian.shape[0] - 1) / 2)
+        y_start_offset = 0
+        if body_y - y_off_center_size < 0:
+            y_start_offset = y_off_center_size - body_y
+        y_end_offset = 0
+        if body_y + y_off_center_size >= person_label.shape[0]:
+            y_end_offset = (body_y + y_off_center_size + 1) - person_label.shape[0]
+        x_start_offset = 0
+        if body_x - x_off_center_size < 0:
+            x_start_offset = x_off_center_size - body_x
+        x_end_offset = 0
+        if body_x + x_off_center_size >= person_label.shape[1]:
+            x_end_offset = (body_x + x_off_center_size + 1) - person_label.shape[1]
+        person_label[body_y - y_off_center_size + y_start_offset:body_y + y_off_center_size + 1 - y_end_offset,
+                     body_x - x_off_center_size + x_start_offset:body_x + x_off_center_size + 1 - x_end_offset
+                     ] = body_gaussian[y_start_offset:body_gaussian.shape[0] - y_end_offset,
+                                       x_start_offset:body_gaussian.shape[1] - x_end_offset]
+        label += person_label
     return label
 
 
@@ -183,4 +206,3 @@ original_database_to_project_database(
 )
 
 print('{} head positions identified.'.format(head_count))
-print('{} head position labels ignored due to ROI.'.format(head_count_outside_roi))
