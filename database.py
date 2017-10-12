@@ -146,15 +146,14 @@ def generate_density_label(head_positions, perspective):
             x_end_offset = (x + off_center_size + 1) - person_label.shape[1]
         person_label[y - off_center_size + y_start_offset:y + off_center_size + 1 - y_end_offset,
                      x - off_center_size + x_start_offset:x + off_center_size + 1 - x_end_offset
-                     ] = head_gaussian[y_start_offset:head_gaussian.shape[0] - y_end_offset,
-                                       x_start_offset:head_gaussian.shape[1] - x_end_offset]
+                     ] += head_gaussian[y_start_offset:head_gaussian.shape[0] - y_end_offset,
+                                        x_start_offset:head_gaussian.shape[1] - x_end_offset]
         body_x = x
         body_y = y + int(position_perspective * body_height_offset_meters)
         body_width_standard_deviation = position_perspective * body_width_standard_deviation_meters
         body_height_standard_deviation = position_perspective * body_height_standard_deviation_meters
         body_gaussian = make_gaussian((body_width_standard_deviation, body_height_standard_deviation))
         body_gaussian = body_gaussian / (2 * body_gaussian.sum())
-        person_label = np.zeros_like(label, dtype=np.float32)
         x_off_center_size = int((body_gaussian.shape[1] - 1) / 2)
         y_off_center_size = int((body_gaussian.shape[0] - 1) / 2)
         y_start_offset = 0
@@ -171,8 +170,8 @@ def generate_density_label(head_positions, perspective):
             x_end_offset = (body_x + x_off_center_size + 1) - person_label.shape[1]
         person_label[body_y - y_off_center_size + y_start_offset:body_y + y_off_center_size + 1 - y_end_offset,
                      body_x - x_off_center_size + x_start_offset:body_x + x_off_center_size + 1 - x_end_offset
-                     ] = body_gaussian[y_start_offset:body_gaussian.shape[0] - y_end_offset,
-                                       x_start_offset:body_gaussian.shape[1] - x_end_offset]
+                     ] += body_gaussian[y_start_offset:body_gaussian.shape[0] - y_end_offset,
+                                        x_start_offset:body_gaussian.shape[1] - x_end_offset]
         label += person_label
     return label
 
