@@ -5,6 +5,7 @@ Code for dealing with the database.
 import os
 import json
 import numpy as np
+from shutil import copy2
 
 
 def data_type_block_dataset_from_structured_database(structured_database_directory, data_type_database_directory,
@@ -24,6 +25,11 @@ def data_type_block_dataset_from_structured_database(structured_database_directo
         dataset_dict = json.load(json_file)
     os.makedirs(data_type_database_directory, exist_ok=True)
     for data_type, cameras in dataset_dict.items():
+        dataset_directory = os.path.join(data_type_database_directory, data_type)
+        os.makedirs(dataset_directory, exist_ok=True)
+        dataset_unlabeled_directory = os.path.join(dataset_directory, 'unlabeled')
+        os.makedirs(dataset_unlabeled_directory, exist_ok=True)
+        unlabeled_file_count = 0
         images = None
         labels = None
         rois = None
@@ -45,8 +51,12 @@ def data_type_block_dataset_from_structured_database(structured_database_directo
                 rois = np.concatenate((rois, np.tile(camera_roi, (camera_labels.shape[0], 1, 1))), axis=0)
                 perspectives = np.concatenate((perspectives, np.tile(camera_perspective,
                                                                      (camera_labels.shape[0], 1, 1))), axis=0)
-        dataset_directory = os.path.join(data_type_database_directory, data_type)
-        os.makedirs(dataset_directory, exist_ok=True)
+            camera_unlabeled_directory = os.path.join(camera_directory, 'unlabeled')
+            for file_name in os.listdir(camera_unlabeled_directory):
+                if file_name.endswith('.avi'):
+                    copy2(os.path.join(camera_unlabeled_directory, file_name),
+                          os.path.join(dataset_unlabeled_directory, '{}.avi'.format(unlabeled_file_count)))
+                    unlabeled_file_count += 1
         np.save(os.path.join(dataset_directory, 'images.npy'), images)
         np.save(os.path.join(dataset_directory, 'labels.npy'), labels)
         np.save(os.path.join(dataset_directory, 'rois.npy'), rois)

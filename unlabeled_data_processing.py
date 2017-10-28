@@ -3,8 +3,6 @@ Code for preparing the unlabeled data from the original dataset.
 """
 
 import os
-import imageio
-import numpy as np
 from shutil import copy2
 
 
