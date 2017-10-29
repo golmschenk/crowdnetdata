@@ -91,7 +91,8 @@ def specific_number_dataset_from_project_database(database_directory, dataset_di
                                                   dataset_json_file_name, number_of_cameras=1,
                                                   number_of_images_per_camera=1):
     """
-    Converts from the structured database to single file datasets per data type.
+    Converts from the structured database to single file datasets per data type with a specific number of
+    images and cameras, along with the related unlabeled data.
 
     :param database_directory: The path to the structured database.
     :type database_directory: str
@@ -144,6 +145,29 @@ def specific_number_dataset_from_project_database(database_directory, dataset_di
         np.save(os.path.join(dataset_directory, 'labels.npy'), labels)
         np.save(os.path.join(dataset_directory, 'rois.npy'), rois)
         np.save(os.path.join(dataset_directory, 'perspectives.npy'), perspectives)
+
+
+def generate_systematic_datasets(database_directory, dataset_root_directory, dataset_json_file_name):
+    """
+    Generates a specified set of datasets
+
+    :param database_directory: The path to the structured database.
+    :type database_directory: str
+    :param dataset_root_directory: The path to put the datasets.
+    :type dataset_root_directory: str
+    :param dataset_json_file_name: A JSON file containing the specifications of which parts of the structured database
+                                   belong to which data type.
+    :type dataset_json_file_name: str
+    """
+    os.makedirs(dataset_root_directory, exist_ok=True)
+    camera_count_list = [1, 3, 5, 10, 20, 40]
+    image_count_list = [1, 3, 5, 10, 20]
+    for camera_count in camera_count_list:
+        for image_count in image_count_list:
+            dataset_name = '{} Cameras {} Images'.format(camera_count, image_count)
+            dataset_directory = os.path.join(dataset_root_directory, dataset_name)
+            specific_number_dataset_from_project_database(database_directory, dataset_directory, dataset_json_file_name,
+                                                          camera_count, image_count)
 
 
 data_type_block_dataset_from_structured_database('../storage/data/World Expo Database',
