@@ -19,7 +19,7 @@ def move_videos_to_project_database(original_database_directory, project_databas
                          os.path.join(original_database_directory, 'train_video_part2')]
     for video_directory in video_directories:
         video_list = [name for name in os.listdir(video_directory) if name.endswith('.avi')]
-        video_prefixes = list(set([video_name.split('_')[0] for video_name in video_list]))
+        video_prefixes = list(set([video_name.replace('-', '_').split('_')[0] for video_name in video_list]))
         for prefix in video_prefixes:
             camera_video_list = [video_name for video_name in video_list if video_name.startswith(prefix)]
             for video_index, video_name in enumerate(camera_video_list):

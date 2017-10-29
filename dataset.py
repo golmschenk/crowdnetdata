@@ -63,6 +63,39 @@ def data_type_block_dataset_from_structured_database(structured_database_directo
         np.save(os.path.join(dataset_directory, 'perspectives.npy'), perspectives)
 
 
-data_type_block_dataset_from_structured_database('../storage/data/Head World Expo Database',
-                                                  '../storage/data/Head World Expo Datasets',
-                                                  '../storage/data/Head World Expo Database/datasets.json')
+def generate_viable_camera_list(database_directory, dataset_json_file_name, viable_cameras_file_name):
+    """
+    Creates a JSON file containing a randomized order list of cameras which are from the training set and which have
+    at least 20 labeled images.
+
+    :param database_directory: The path to the database.
+    :type database_directory: str
+    :param dataset_json_file_name: A JSON file containing the specifications of which parts of the structured database
+                                   belong to which data type.
+    :type dataset_json_file_name: str
+    :param viable_cameras_file_name: A JSON file to put the list of viable cameras in.
+    :type viable_cameras_file_name: str
+    """
+    viable_camera_list = []
+    with open(dataset_json_file_name) as json_file:
+        dataset_dict = json.load(json_file)
+    for camera_name in [directory for directory in os.listdir(database_directory) if not directory.startswith('.')]:
+        if camera_name not in dataset_dict['train']:
+            continue
+        camera_directory = os.path.join(database_directory, camera_name)
+        labels = np.load(os.path.join(camera_directory, 'labels.npy'), mmap_mode='r')
+        example_count = labels.shape[0]
+        if example_count < 20:
+            continue
+        viable_camera_list.append(camera_name)
+    with open(viable_cameras_file_name, 'w') as json_file:
+        json.dump(viable_camera_list, json_file)
+
+
+data_type_block_dataset_from_structured_database('../storage/data/World Expo Database',
+                                                 '../storage/data/World Expo Datasets',
+                                                 '../storage/data/World Expo Database/datasets.json')
+
+generate_viable_camera_list('/Volumes/Gold/Datasets/World Expo/World Expo Database',
+                            '/Volumes/Gold/Datasets/World Expo/datasets.json',
+                            '/Volumes/Gold/Datasets/World Expo/viable.json')
