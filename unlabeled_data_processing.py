@@ -37,3 +37,6 @@ def move_videos_to_project_database(original_database_directory, project_databas
             os.makedirs(unlabeled_directory, exist_ok=True)
             copy2(os.path.join(test_video_directory, video_name),
                   os.path.join(unlabeled_directory, '{}.avi'.format(video_index)))
+
+move_videos_to_project_database('../storage/data/Original World Expo Database',
+                                '../storage/data/World Expo Database')
