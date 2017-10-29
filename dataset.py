@@ -116,6 +116,8 @@ def specific_number_dataset_from_project_database(database_directory, dataset_di
         labels = None
         rois = None
         perspectives = None
+        unlabeled_estimates = None
+        unlabeled_image_counts = None
         unlabeled_video_writer = imageio.get_writer(os.path.join(dataset_directory, 'unlabeled_images.avi'), fps=50)
         for camera in cameras[:number_of_cameras]:
             camera_directory = os.path.join(database_directory, camera)
@@ -123,23 +125,31 @@ def specific_number_dataset_from_project_database(database_directory, dataset_di
             camera_labels = np.load(os.path.join(camera_directory, 'labels.npy'))
             camera_roi = np.load(os.path.join(camera_directory, 'roi.npy'))
             camera_perspective = np.load(os.path.join(camera_directory, 'perspective.npy'))
+            camera_unlabeled_directory = os.path.join(camera_directory, 'unlabeled')
+            camera_unlabeled_image_count = 0
+            for file_name in os.listdir(camera_unlabeled_directory):
+                if file_name.endswith('.avi'):
+                    video_reader = imageio.get_reader(os.path.join(camera_unlabeled_directory, file_name))
+                    for frame in video_reader:
+                        unlabeled_video_writer.append_data(frame)
+                        camera_unlabeled_image_count += 1
             if images is None:
                 images = camera_images[:number_of_images_per_camera]
                 labels = camera_labels[:number_of_images_per_camera]
                 rois = np.tile(camera_roi, (labels.shape[0], 1, 1))
                 perspectives = np.tile(camera_perspective, (labels.shape[0], 1, 1))
+                unlabeled_estimates = np.array([camera_labels[:number_of_images_per_camera].sum(axis=(1, 2)).mean()],
+                                               dtype=np.float32)
+                unlabeled_image_counts = np.array([camera_unlabeled_image_count], dtype=np.int32)
             else:
                 images = np.concatenate((images, camera_images[:number_of_images_per_camera]), axis=0)
                 labels = np.concatenate((labels, camera_labels[:number_of_images_per_camera]), axis=0)
                 rois = np.concatenate((rois, np.tile(camera_roi, (camera_labels.shape[0], 1, 1))), axis=0)
                 perspectives = np.concatenate((perspectives, np.tile(camera_perspective,
                                                                      (camera_labels.shape[0], 1, 1))), axis=0)
-            camera_unlabeled_directory = os.path.join(camera_directory, 'unlabeled')
-            for file_name in os.listdir(camera_unlabeled_directory):
-                if file_name.endswith('.avi'):
-                    video_reader = imageio.get_reader(os.path.join(camera_unlabeled_directory, file_name))
-                    for frame in video_reader:
-                        unlabeled_video_writer.append_data(frame)
+                camera_unlabeled_estimate = camera_labels[:number_of_images_per_camera].sum(axis=(1, 2)).mean()
+                unlabeled_estimates = np.append(unlabeled_estimates, camera_unlabeled_estimate)
+                unlabeled_image_counts = np.append(unlabeled_image_counts, camera_unlabeled_image_count)
         unlabeled_video_writer.close()
         np.save(os.path.join(dataset_directory, 'images.npy'), images)
         np.save(os.path.join(dataset_directory, 'labels.npy'), labels)
@@ -170,7 +180,10 @@ def generate_systematic_datasets(database_directory, dataset_root_directory, dat
                                                           camera_count, image_count)
 
 
-data_type_block_dataset_from_structured_database('../storage/data/World Expo Database',
-                                                 '../storage/data/World Expo Datasets',
-                                                 '../storage/data/World Expo Database/datasets.json')
+# data_type_block_dataset_from_structured_database('../storage/data/World Expo Database',
+#                                                  '../storage/data/World Expo Datasets',
+#                                                  '../storage/data/World Expo Database/datasets.json')
 
+generate_systematic_datasets('/Volumes/Gold/Datasets/World Expo/World Expo Database',
+                             '/Volumes/Gold/Datasets/World Expo/Check',
+                             '/Volumes/Gold/Datasets/World Expo/viable.json')
