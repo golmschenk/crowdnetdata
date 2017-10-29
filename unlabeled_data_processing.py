@@ -29,7 +29,7 @@ def move_videos_to_project_database(original_database_directory, project_databas
                       os.path.join(unlabeled_directory, '{}.avi'.format(video_index)))
     test_video_directory = os.path.join(original_database_directory, 'test_video')
     video_list = [name for name in os.listdir(test_video_directory) if name.endswith('.avi')]
-    video_prefixes = list(set([video_name.split('_')[0] for video_name in video_list]))
+    video_prefixes = list(set([video_name.replace('-', '_').split('_')[0] for video_name in video_list]))
     for prefix in video_prefixes:
         camera_video_list = [video_name for video_name in video_list if video_name.startswith(prefix)]
         for video_index, video_name in enumerate(camera_video_list):
@@ -38,5 +38,6 @@ def move_videos_to_project_database(original_database_directory, project_databas
             copy2(os.path.join(test_video_directory, video_name),
                   os.path.join(unlabeled_directory, '{}.avi'.format(video_index)))
 
-move_videos_to_project_database('../storage/data/Original World Expo Database',
-                                '../storage/data/World Expo Database')
+
+move_videos_to_project_database('/Volumes/Gold/Datasets/World Expo/WorldExpo (New Download)',
+                                '/Volumes/Gold/Datasets/World Expo/World Expo Database')

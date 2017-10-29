@@ -203,8 +203,8 @@ def make_gaussian(standard_deviation=1.0):
 
 
 original_database_to_project_database(
-    '/Users/golmschenk/Original World Expo Dataset',
-    '/Users/golmschenk/World Expo Database'
+    '/Volumes/Gold/Datasets/World Expo/WorldExpo (New Download)',
+    '/Volumes/Gold/Datasets/World Expo/World Expo Database'
 )
 
 print('{} head positions identified.'.format(head_count))

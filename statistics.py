@@ -27,3 +27,7 @@ def generate_csv_of_camera_statistics(database_directory, csv_output_path):
             video_count = len([video for video in os.listdir(os.path.join(camera_directory, 'unlabeled'))
                                if video.endswith('.avi')])
             writer.writerow([camera_name, example_count, mean_person_count, video_count])
+
+
+generate_csv_of_camera_statistics('../storage/data/World Expo Database',
+                                  '../storage/data/camera_statistics.csv')
