@@ -8,7 +8,6 @@ import random
 
 import imageio
 import numpy as np
-from shutil import copy2
 
 
 def data_type_block_dataset_from_structured_database(structured_database_directory, data_type_database_directory,
@@ -118,6 +117,8 @@ def specific_number_dataset_from_project_database(database_directory, dataset_di
         perspectives = None
         unlabeled_estimates = None
         unlabeled_image_counts = None
+        unlabeled_perspectives = None
+        unlabeled_rois = None
         unlabeled_video_writer = imageio.get_writer(os.path.join(dataset_directory, 'unlabeled_images.avi'), fps=50)
         for camera in cameras[:number_of_cameras]:
             camera_directory = os.path.join(database_directory, camera)
@@ -141,6 +142,8 @@ def specific_number_dataset_from_project_database(database_directory, dataset_di
                 unlabeled_estimates = np.array([camera_labels[:number_of_images_per_camera].sum(axis=(1, 2)).mean()],
                                                dtype=np.float32)
                 unlabeled_image_counts = np.array([camera_unlabeled_image_count], dtype=np.int32)
+                unlabeled_perspectives = np.expand_dims(camera_perspective, axis=0)
+                unlabeled_rois = np.expand_dims(camera_roi, axis=0)
             else:
                 images = np.concatenate((images, camera_images[:number_of_images_per_camera]), axis=0)
                 labels = np.concatenate((labels, camera_labels[:number_of_images_per_camera]), axis=0)
@@ -150,11 +153,16 @@ def specific_number_dataset_from_project_database(database_directory, dataset_di
                 camera_unlabeled_estimate = camera_labels[:number_of_images_per_camera].sum(axis=(1, 2)).mean()
                 unlabeled_estimates = np.append(unlabeled_estimates, camera_unlabeled_estimate)
                 unlabeled_image_counts = np.append(unlabeled_image_counts, camera_unlabeled_image_count)
+                unlabeled_perspectives = np.append(unlabeled_perspectives, [camera_perspective], axis=0)
+                unlabeled_rois = np.append(unlabeled_rois, [camera_roi], axis=0)
         unlabeled_video_writer.close()
         np.save(os.path.join(dataset_directory, 'images.npy'), images)
         np.save(os.path.join(dataset_directory, 'labels.npy'), labels)
         np.save(os.path.join(dataset_directory, 'rois.npy'), rois)
         np.save(os.path.join(dataset_directory, 'perspectives.npy'), perspectives)
+        np.save(os.path.join(dataset_directory, 'unlabeled_image_counts.npy'), unlabeled_image_counts)
+        np.save(os.path.join(dataset_directory, 'unlabeled_rois.npy'), unlabeled_rois)
+        np.save(os.path.join(dataset_directory, 'unlabeled_perspectives.npy'), unlabeled_perspectives)
 
 
 def generate_systematic_datasets(database_directory, dataset_root_directory, dataset_json_file_name):
@@ -185,5 +193,5 @@ def generate_systematic_datasets(database_directory, dataset_root_directory, dat
 #                                                  '../storage/data/World Expo Database/datasets.json')
 
 generate_systematic_datasets('/Volumes/Gold/Datasets/World Expo/World Expo Database',
-                             '/Volumes/Gold/Datasets/World Expo/Check',
+                             '/Volumes/Gold/Datasets/World Expo/Unlabeled World Expo Datasets',
                              '/Volumes/Gold/Datasets/World Expo/viable.json')
