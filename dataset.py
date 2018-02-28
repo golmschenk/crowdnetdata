@@ -5,6 +5,7 @@ Code for dealing with the database.
 import os
 import json
 import random
+import math
 
 import imageio
 import numpy as np
@@ -56,6 +57,26 @@ def data_type_block_dataset_from_structured_database(structured_database_directo
         np.save(os.path.join(dataset_directory, 'perspectives.npy'), perspectives)
 
 
+def dummy_dataset_from_video(video_directory, output_directory, start_frame=0, end_frame=math.inf, every_nth_frame=1):
+    video_reader = imageio.get_reader(os.path.join(video_directory, 'video.avi'))
+    print('FPS: {}'.format(video_reader.get_meta_data()['fps']))
+    image_list = []
+    for index, image in enumerate(video_reader):
+        if index >= start_frame and index < end_frame and index % every_nth_frame == 0:
+            image_list.append(image)
+    images = np.stack(image_list)
+    labels = np.zeros(shape=images.shape[:3], dtype=np.float32)
+    roi = np.load(os.path.join(video_directory, 'roi.npy'))
+    rois = np.tile(roi, (labels.shape[0], 1, 1))
+    perspective = np.load(os.path.join(video_directory, 'perspective.npy'))
+    perspectives = np.tile(perspective, (labels.shape[0], 1, 1))
+    os.makedirs(output_directory, exist_ok=True)
+    np.save(os.path.join(output_directory, 'images.npy'), images)
+    np.save(os.path.join(output_directory, 'labels.npy'), labels)
+    np.save(os.path.join(output_directory, 'rois.npy'), rois)
+    np.save(os.path.join(output_directory, 'perspectives.npy'), perspectives)
+
+
 def generate_viable_camera_list(database_directory, dataset_json_file_name, viable_cameras_file_name):
     """
     Creates a JSON file containing a randomized order list of cameras which are from the training set and which have
@@ -84,6 +105,12 @@ def generate_viable_camera_list(database_directory, dataset_json_file_name, viab
     random.shuffle(viable_camera_list)
     with open(viable_cameras_file_name, 'w') as json_file:
         json.dump({'train': viable_camera_list}, json_file)
+
+
+def unison_shuffled_copies(a, b):
+    assert len(a) == len(b)
+    p = np.random.permutation(len(a))
+    return a[p], b[p]
 
 
 def specific_number_dataset_from_project_database(database_directory, dataset_directory,
@@ -178,7 +205,7 @@ def generate_systematic_datasets(database_directory, dataset_root_directory, dat
     :type dataset_json_file_name: str
     """
     os.makedirs(dataset_root_directory, exist_ok=True)
-    camera_count_list = [1, 3, 5, 10, 20, 40]
+    camera_count_list = [1, 3, 5, 10, 20]
     image_count_list = [1, 3, 5, 10, 20]
     for camera_count in camera_count_list:
         for image_count in image_count_list:
@@ -188,10 +215,10 @@ def generate_systematic_datasets(database_directory, dataset_root_directory, dat
                                                           camera_count, image_count)
 
 
-# data_type_block_dataset_from_structured_database('../storage/data/World Expo Database',
-#                                                  '../storage/data/World Expo Datasets',
-#                                                  '../storage/data/World Expo Database/datasets.json')
+dummy_dataset_from_video('/Users/golmschenk/Desktop/test_200608',
+                        '/Users/golmschenk/Desktop/200608 Time Lapse Demo',
+                         every_nth_frame=60)
 
-generate_systematic_datasets('/Volumes/Gold/Datasets/World Expo/World Expo Database',
-                             '/Volumes/Gold/Datasets/World Expo/Unlabeled World Expo Datasets',
-                             '/Volumes/Gold/Datasets/World Expo/viable.json')
+# specific_number_dataset_from_project_database('/Volumes/Gold/Datasets/World Expo/World Expo Database',
+#                              '/Volumes/Gold/Datasets/World Expo/Unlabeled World Expo Datasets/All Cameras All Images',
+#                              '/Volumes/Gold/Datasets/World Expo/train_only.json', None, None)

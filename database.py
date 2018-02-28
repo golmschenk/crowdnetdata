@@ -2,10 +2,14 @@
 Code to generate the database.
 """
 import os
+import re
+import math
 import h5py
 import numpy as np
+import pandas.io.parsers
 import scipy.ndimage
 import scipy.io
+import sys
 from PIL import Image, ImageDraw
 
 from incorrectly_labeled import incorrectly_labeled
@@ -70,6 +74,100 @@ def original_database_to_project_database(original_directory, output_directory):
                 np.save(os.path.join(output_camera_directory, 'roi.npy'), roi)
 
 
+def hao_ben_simulated_data_to_project_database(original_directory, output_directory):
+    os.makedirs(output_directory, exist_ok=True)
+    image_directory = os.path.join(original_directory, 'images')
+    perspective_directory = os.path.join(original_directory, 'perspective map')
+    bounding_box_directory = os.path.join(original_directory, 'bounding_boxes')
+    image_list = []
+    perspective_list = []
+    roi_list = []
+    label_list = []
+    print('{} mat available.'.format(len(os.listdir(perspective_directory))))
+    mat_used_count = 0
+    for perspective_file_name in os.listdir(perspective_directory):
+        if perspective_file_name.endswith('.mat'):
+            file_number = int(perspective_file_name.replace('pmap', '').replace('.mat', ''))
+            perspective = load_mat(os.path.join(perspective_directory, perspective_file_name))['img_data'].astype(np.float32)
+            perspective /= 1.75
+            if perspective.max() > 500 or perspective[perspective.shape[0]//2, 0] < 0 or perspective[-1, 0] < 0:
+                continue
+            perspective = np.maximum(perspective, 3)
+            roi = np.ones_like(perspective, dtype=np.bool)
+            image = scipy.ndimage.imread(os.path.join(image_directory, '{}.png'.format(file_number)))
+            image = image[:, :, :3]
+            bounding_boxes = np.genfromtxt(os.path.join(bounding_box_directory, 'bb{}.csv'.format(file_number)), delimiter=',')
+            head_positions = np.stack((((bounding_boxes[:, 1] + bounding_boxes[:, 3]) / 2), bounding_boxes[:, 2]), axis=1).astype(np.int32)
+            label = generate_density_label(head_positions, perspective, ignore_tiny=True)
+            image_list.append(image)
+            label_list.append(label)
+            perspective_list.append(perspective)
+            roi_list.append(roi)
+            mat_used_count += 1
+    print('{} mat used.'.format(mat_used_count))
+    images = np.stack(image_list)
+    labels = np.stack(label_list)
+    rois = np.stack(roi_list)
+    perspectives = np.stack(perspective_list)
+    np.save(os.path.join(output_directory, 'images.npy'), images)
+    np.save(os.path.join(output_directory, 'labels.npy'), labels)
+    np.save(os.path.join(output_directory, 'perspectives.npy'), perspectives)
+    np.save(os.path.join(output_directory, 'rois.npy'), rois)
+
+
+def split_existing_data(data_directory):
+    os.makedirs(os.path.join(data_directory, 'train'), exist_ok=True)
+    os.makedirs(os.path.join(data_directory, 'validation'), exist_ok=True)
+    images = np.load(os.path.join(data_directory, 'images.npy'))
+    images0 = images[:images.shape[0] // 2]
+    images1 = images[images.shape[0] // 2:]
+    np.save(os.path.join(data_directory, 'train', 'images.npy'), images0)
+    np.save(os.path.join(data_directory, 'validation', 'images.npy'), images1)
+    labels = np.load(os.path.join(data_directory, 'labels.npy'))
+    labels0 = labels[:labels.shape[0] // 2]
+    labels1 = labels[labels.shape[0] // 2:]
+    np.save(os.path.join(data_directory, 'train', 'labels.npy'), labels0)
+    np.save(os.path.join(data_directory, 'validation', 'labels.npy'), labels1)
+    rois = np.load(os.path.join(data_directory, 'rois.npy'))
+    rois0 = rois[:rois.shape[0] // 2]
+    rois1 = rois[rois.shape[0] // 2:]
+    np.save(os.path.join(data_directory, 'train', 'rois.npy'), rois0)
+    np.save(os.path.join(data_directory, 'validation', 'rois.npy'), rois1)
+    perspectives = np.load(os.path.join(data_directory, 'perspectives.npy'))
+    perspectives0 = perspectives[:perspectives.shape[0] // 2]
+    perspectives1 = perspectives[perspectives.shape[0] // 2:]
+    np.save(os.path.join(data_directory, 'train', 'perspectives.npy'), perspectives0)
+    np.save(os.path.join(data_directory, 'validation', 'perspectives.npy'), perspectives1)
+
+
+def read_hao_ben_meta_file(file_path):
+    image_head_list = []
+    head_positions_dict = {}
+    height_dict = {}
+
+    with open(file_path) as file:
+        pictures_regex = re.compile(r'\w+/(\w+\.png)\s+(\d+)')
+        persons_regex = re.compile(r'(\d+)\s+(\d+\.\d+)\s+\[(\d+),\s*(\d+)]')
+
+        for line in file:
+            if line.isspace():
+                continue
+            line = line.strip()
+            match = pictures_regex.match(line)
+            if match:
+                file, id = match.group(1), int(match.group(2))
+                image_head_list.append((file, id))
+                continue
+            match = persons_regex.match(line)
+            if match:
+                person, x, y = map(int, match.group(1, 3, 4))
+                height = float(match.group(2))
+                head_positions_dict[person] = (x, y)
+                height_dict[person] = height
+                continue
+    return image_head_list, head_positions_dict, height_dict
+
+
 def load_mat(mat_file_path):
     """
     Load either format of mat files the same way.
@@ -107,7 +205,7 @@ def generate_roi_array(roi_path, size_array):
     return roi
 
 
-def generate_density_label(head_positions, perspective):
+def generate_density_label(head_positions, perspective, ignore_tiny=False):
     """
     Generates a density label given the head positions and other meta data.
 
@@ -121,12 +219,14 @@ def generate_density_label(head_positions, perspective):
     global head_count
     label = np.zeros_like(perspective, dtype=np.float32)
     for head_position in head_positions:
-        head_count += 1
         x, y = head_position.astype(np.uint32)
         if 0 <= x < perspective.shape[1]:
             position_perspective = perspective[y, x]
         else:
             position_perspective = perspective[y, 0]
+        if ignore_tiny and position_perspective < 3.1:
+            continue
+        head_count += 1
         head_standard_deviation = position_perspective * head_standard_deviation_meters
         head_gaussian = make_gaussian(head_standard_deviation)
         head_gaussian = head_gaussian / (2 * head_gaussian.sum())
@@ -202,9 +302,11 @@ def make_gaussian(standard_deviation=1.0):
     return gaussian_array
 
 
-original_database_to_project_database(
-    '/Volumes/Gold/Datasets/World Expo/WorldExpo (New Download)',
-    '/Volumes/Gold/Datasets/World Expo/World Expo Database'
-)
+# original_database_to_project_database(
+#     '/Users/golmschenk/Desktop/example data 2',
+#     '/Users/golmschenk/Desktop/example data processed'
+# )
 
-print('{} head positions identified.'.format(head_count))
+hao_ben_simulated_data_to_project_database('/Volumes/Gold/Datasets/LCrowdV/Hao Ben', '/Users/golmschenk/Downloads')
+split_existing_data('/Users/golmschenk/Downloads')
+
