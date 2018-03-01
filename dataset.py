@@ -241,6 +241,7 @@ def specific_number_dataset_from_project_database_using_target_unlabeled(databas
     os.makedirs(train_directory, exist_ok=True)
     unlabeled_perspectives = None
     unlabeled_rois = None
+    unlabeled_image_counts = None
     unlabeled_video_writer = imageio.get_writer(os.path.join(train_directory, 'unlabeled_images.avi'), fps=50)
     for data_type, cameras in dataset_dict.items():
         if data_type == 'train':
@@ -259,6 +260,7 @@ def specific_number_dataset_from_project_database_using_target_unlabeled(databas
             camera_labels = np.load(os.path.join(camera_directory, 'labels.npy'))
             camera_roi = np.load(os.path.join(camera_directory, 'roi.npy'))
             camera_perspective = np.load(os.path.join(camera_directory, 'perspective.npy'))
+            camera_unlabeled_image_count = 0
             if images is None:
                 images = camera_images[:number_of_images_per_camera]
                 labels = camera_labels[:number_of_images_per_camera]
@@ -272,20 +274,24 @@ def specific_number_dataset_from_project_database_using_target_unlabeled(databas
                 perspectives = np.concatenate((perspectives, np.tile(camera_perspective,
                                                                      (camera_labels.shape[0], 1, 1))), axis=0)
             if data_type == 'validation' or data_type == 'test':
-                if unlabeled_perspectives is None:
-                    unlabeled_perspectives = np.expand_dims(camera_perspective, axis=0)
-                    unlabeled_rois = np.expand_dims(camera_roi, axis=0)
-                else:
-                    unlabeled_perspectives = np.append(unlabeled_perspectives, [camera_perspective], axis=0)
-                    unlabeled_rois = np.append(unlabeled_rois, [camera_roi], axis=0)
                 camera_unlabeled_directory = os.path.join(camera_directory, 'unlabeled')
                 for file_name in os.listdir(camera_unlabeled_directory):
                     if file_name.endswith('.avi'):
                         video_reader = imageio.get_reader(os.path.join(camera_unlabeled_directory, file_name))
                         for frame_index, frame in enumerate(video_reader):
-                            if (data_type == 'test' and frame_index % 500 == 0) or (data_type == 'validation' and frame_index % 50 == 0):
+                            if (data_type == 'test' and frame_index % 500 == 0) or (
+                                    data_type == 'validation' and frame_index % 50 == 0):
                                 unlabeled_video_writer.append_data(frame)
                                 data_type_unlabeled_image_count += 1
+                                camera_unlabeled_image_count += 1
+                if unlabeled_perspectives is None:
+                    unlabeled_perspectives = np.expand_dims(camera_perspective, axis=0)
+                    unlabeled_rois = np.expand_dims(camera_roi, axis=0)
+                    unlabeled_image_counts = np.array([camera_unlabeled_image_count], dtype=np.int32)
+                else:
+                    unlabeled_perspectives = np.append(unlabeled_perspectives, [camera_perspective], axis=0)
+                    unlabeled_rois = np.append(unlabeled_rois, [camera_roi], axis=0)
+                    unlabeled_image_counts = np.append(unlabeled_image_counts, camera_unlabeled_image_count)
         np.save(os.path.join(data_type_directory, 'images.npy'), images)
         np.save(os.path.join(data_type_directory, 'labels.npy'), labels)
         np.save(os.path.join(data_type_directory, 'rois.npy'), rois)
@@ -294,6 +300,7 @@ def specific_number_dataset_from_project_database_using_target_unlabeled(databas
     unlabeled_video_writer.close()
     np.save(os.path.join(train_directory, 'unlabeled_rois.npy'), unlabeled_rois)
     np.save(os.path.join(train_directory, 'unlabeled_perspectives.npy'), unlabeled_perspectives)
+    np.save(os.path.join(train_directory, 'unlabeled_image_counts.npy'), unlabeled_image_counts)
 
 
 
