@@ -246,8 +246,8 @@ def specific_number_dataset_from_project_database_using_target_unlabeled(databas
         if data_type == 'train':
             cameras = cameras[:number_of_cameras]
         data_type_unlabeled_image_count = 0
-        dataset_directory = os.path.join(dataset_directory, data_type)
-        os.makedirs(dataset_directory, exist_ok=True)
+        data_type_directory = os.path.join(dataset_directory, data_type)
+        os.makedirs(data_type_directory, exist_ok=True)
         images = None
         labels = None
         rois = None
@@ -286,10 +286,10 @@ def specific_number_dataset_from_project_database_using_target_unlabeled(databas
                             if (data_type == 'test' and frame_index % 500 == 0) or (data_type == 'validation' and frame_index % 50 == 0):
                                 unlabeled_video_writer.append_data(frame)
                                 data_type_unlabeled_image_count += 1
-        np.save(os.path.join(dataset_directory, 'images.npy'), images)
-        np.save(os.path.join(dataset_directory, 'labels.npy'), labels)
-        np.save(os.path.join(dataset_directory, 'rois.npy'), rois)
-        np.save(os.path.join(dataset_directory, 'perspectives.npy'), perspectives)
+        np.save(os.path.join(data_type_directory, 'images.npy'), images)
+        np.save(os.path.join(data_type_directory, 'labels.npy'), labels)
+        np.save(os.path.join(data_type_directory, 'rois.npy'), rois)
+        np.save(os.path.join(data_type_directory, 'perspectives.npy'), perspectives)
         print('`{}` added {} unlabeled images.'.format(data_type, data_type_unlabeled_image_count))
     unlabeled_video_writer.close()
     np.save(os.path.join(train_directory, 'unlabeled_rois.npy'), unlabeled_rois)
