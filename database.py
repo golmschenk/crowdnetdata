@@ -302,11 +302,11 @@ def make_gaussian(standard_deviation=1.0):
     return gaussian_array
 
 
-# original_database_to_project_database(
-#     '/Users/golmschenk/Desktop/example data 2',
-#     '/Users/golmschenk/Desktop/example data processed'
-# )
+original_database_to_project_database(
+    '/mnt/Gold/data/World Expo Original',
+    '/mnt/Gold/data/World Expo'
+)
 
-hao_ben_simulated_data_to_project_database('/Volumes/Gold/Datasets/LCrowdV/Hao Ben', '/Users/golmschenk/Downloads')
-split_existing_data('/Users/golmschenk/Downloads')
+# hao_ben_simulated_data_to_project_database('/Volumes/Gold/Datasets/LCrowdV/Hao Ben', '/Users/golmschenk/Downloads')
+# split_existing_data('/Users/golmschenk/Downloads')
 

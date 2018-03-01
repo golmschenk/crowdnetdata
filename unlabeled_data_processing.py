@@ -39,5 +39,7 @@ def move_videos_to_project_database(original_database_directory, project_databas
                   os.path.join(unlabeled_directory, '{}.avi'.format(video_index)))
 
 
-move_videos_to_project_database('/Volumes/Gold/Datasets/World Expo/WorldExpo (New Download)',
-                                '/Volumes/Gold/Datasets/World Expo/World Expo Database')
+move_videos_to_project_database(
+    '/mnt/Gold/data/World Expo Original',
+    '/mnt/Gold/data/World Expo'
+)
