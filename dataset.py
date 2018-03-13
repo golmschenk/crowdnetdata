@@ -9,6 +9,7 @@ import math
 
 import imageio
 import numpy as np
+import shutil
 
 
 def data_type_block_dataset_from_structured_database(structured_database_directory, data_type_database_directory,
@@ -217,7 +218,8 @@ def generate_systematic_datasets(database_directory, dataset_root_directory, dat
 
 def specific_number_dataset_from_project_database_using_target_unlabeled(database_directory, dataset_directory,
                                                                          dataset_json_file_name, number_of_cameras=1,
-                                                                         number_of_images_per_camera=1):
+                                                                         number_of_images_per_camera=1,
+                                                                         remove_test_and_validation=False):
     """
     Converts from the structured database to single file datasets per data type with a specific number of
     images and cameras, along with the related unlabeled data.
@@ -258,18 +260,22 @@ def specific_number_dataset_from_project_database_using_target_unlabeled(databas
             camera_directory = os.path.join(database_directory, camera)
             camera_images = np.load(os.path.join(camera_directory, 'images.npy'))
             camera_labels = np.load(os.path.join(camera_directory, 'labels.npy'))
+            if data_type == 'train':
+                cameras = cameras[:number_of_cameras]
+                camera_images = camera_images[:number_of_images_per_camera]
+                camera_labels = camera_labels[:number_of_images_per_camera]
             camera_roi = np.load(os.path.join(camera_directory, 'roi.npy'))
             camera_perspective = np.load(os.path.join(camera_directory, 'perspective.npy'))
             camera_unlabeled_image_count = 0
             if images is None:
-                images = camera_images[:number_of_images_per_camera]
-                labels = camera_labels[:number_of_images_per_camera]
+                images = camera_images
+                labels = camera_labels
                 rois = np.tile(camera_roi, (labels.shape[0], 1, 1))
                 perspectives = np.tile(camera_perspective, (labels.shape[0], 1, 1))
 
             else:
-                images = np.concatenate((images, camera_images[:number_of_images_per_camera]), axis=0)
-                labels = np.concatenate((labels, camera_labels[:number_of_images_per_camera]), axis=0)
+                images = np.concatenate((images, camera_images), axis=0)
+                labels = np.concatenate((labels, camera_labels), axis=0)
                 rois = np.concatenate((rois, np.tile(camera_roi, (camera_labels.shape[0], 1, 1))), axis=0)
                 perspectives = np.concatenate((perspectives, np.tile(camera_perspective,
                                                                      (camera_labels.shape[0], 1, 1))), axis=0)
@@ -301,18 +307,121 @@ def specific_number_dataset_from_project_database_using_target_unlabeled(databas
     np.save(os.path.join(train_directory, 'unlabeled_rois.npy'), unlabeled_rois)
     np.save(os.path.join(train_directory, 'unlabeled_perspectives.npy'), unlabeled_perspectives)
     np.save(os.path.join(train_directory, 'unlabeled_image_counts.npy'), unlabeled_image_counts)
+    if remove_test_and_validation:
+        shutil.rmtree(os.path.join(dataset_directory, 'test'))
+        shutil.rmtree(os.path.join(dataset_directory, 'validation'))
 
+
+def specific_number_dataset_from_project_database_using_target_unlabeled_numpy(database_directory, dataset_directory,
+                                                                         dataset_json_file_name, number_of_cameras=1,
+                                                                         number_of_images_per_camera=1,
+                                                                         remove_test_and_validation=False):
+    """
+    Converts from the structured database to single file datasets per data type with a specific number of
+    images and cameras, along with the related unlabeled data.
+
+    :param database_directory: The path to the structured database.
+    :type database_directory: str
+    :param dataset_directory: The path where the single file per data type database should be placed.
+    :type dataset_directory: str
+    :param dataset_json_file_name: A JSON file containing the specifications of which parts of the structured database
+                                   belong to which data type.
+    :type dataset_json_file_name: str
+    :param number_of_cameras: The number of cameras to include.
+    :type number_of_cameras: int
+    :param number_of_images_per_camera: The number of images to use per camera.
+    :type number_of_images_per_camera: int
+    """
+    with open(dataset_json_file_name) as json_file:
+        dataset_dict = json.load(json_file)
+    os.makedirs(dataset_directory, exist_ok=True)
+    train_directory = os.path.join(dataset_directory, 'train')
+    os.makedirs(train_directory, exist_ok=True)
+    unlabeled_perspectives = None
+    unlabeled_rois = None
+    unlabeled_images = None
+    for data_type, cameras in dataset_dict.items():
+        if data_type == 'train':
+            cameras = cameras[:number_of_cameras]
+        data_type_unlabeled_image_count = 0
+        data_type_directory = os.path.join(dataset_directory, data_type)
+        os.makedirs(data_type_directory, exist_ok=True)
+        images = None
+        labels = None
+        rois = None
+        perspectives = None
+        for camera in cameras:
+            print('Processing camera {}...'.format(camera))
+            camera_directory = os.path.join(database_directory, camera)
+            camera_images = np.load(os.path.join(camera_directory, 'images.npy'))
+            camera_labels = np.load(os.path.join(camera_directory, 'labels.npy'))
+            if data_type == 'train':
+                cameras = cameras[:number_of_cameras]
+                camera_images = camera_images[:number_of_images_per_camera]
+                camera_labels = camera_labels[:number_of_images_per_camera]
+            camera_roi = np.load(os.path.join(camera_directory, 'roi.npy'))
+            camera_perspective = np.load(os.path.join(camera_directory, 'perspective.npy'))
+            camera_unlabeled_image_count = 0
+            if images is None:
+                images = camera_images
+                labels = camera_labels
+                rois = np.tile(camera_roi, (labels.shape[0], 1, 1))
+                perspectives = np.tile(camera_perspective, (labels.shape[0], 1, 1))
+
+            else:
+                images = np.concatenate((images, camera_images), axis=0)
+                labels = np.concatenate((labels, camera_labels), axis=0)
+                rois = np.concatenate((rois, np.tile(camera_roi, (camera_labels.shape[0], 1, 1))), axis=0)
+                perspectives = np.concatenate((perspectives, np.tile(camera_perspective,
+                                                                     (camera_labels.shape[0], 1, 1))), axis=0)
+            if data_type == 'validation' or data_type == 'test':
+                camera_unlabeled_directory = os.path.join(camera_directory, 'unlabeled')
+                for file_name in os.listdir(camera_unlabeled_directory):
+                    if file_name.endswith('.avi'):
+                        video_reader = imageio.get_reader(os.path.join(camera_unlabeled_directory, file_name))
+                        for frame_index, frame in enumerate(video_reader):
+                            if (data_type == 'test' and frame_index % 500 == 0) or (
+                                    data_type == 'validation' and frame_index % 50 == 0):
+                                if unlabeled_images is None:
+                                    unlabeled_images = np.expand_dims(frame, axis=0)
+                                    unlabeled_perspectives = np.expand_dims(camera_perspective, axis=0)
+                                    unlabeled_rois = np.expand_dims(camera_roi, axis=0)
+                                else:
+                                    unlabeled_images = np.append(unlabeled_images, [frame], axis=0)
+                                    unlabeled_perspectives = np.append(unlabeled_perspectives, [camera_perspective], axis=0)
+                                    unlabeled_rois = np.append(unlabeled_rois, [camera_roi], axis=0)
+                                data_type_unlabeled_image_count += 1
+                                camera_unlabeled_image_count += 1
+        np.save(os.path.join(data_type_directory, 'images.npy'), images)
+        np.save(os.path.join(data_type_directory, 'labels.npy'), labels)
+        np.save(os.path.join(data_type_directory, 'rois.npy'), rois)
+        np.save(os.path.join(data_type_directory, 'perspectives.npy'), perspectives)
+        print('`{}` added {} unlabeled images.'.format(data_type, data_type_unlabeled_image_count))
+    np.save(os.path.join(train_directory, 'unlabeled_images.npy'), unlabeled_images)
+    np.save(os.path.join(train_directory, 'unlabeled_rois.npy'), unlabeled_rois)
+    np.save(os.path.join(train_directory, 'unlabeled_perspectives.npy'), unlabeled_perspectives)
+    if remove_test_and_validation:
+        shutil.rmtree(os.path.join(dataset_directory, 'test'))
+        shutil.rmtree(os.path.join(dataset_directory, 'validation'))
 
 
 # dummy_dataset_from_video('/Users/golmschenk/Desktop/test_200608',
 #                         '/Users/golmschenk/Desktop/200608 Time Lapse Demo',
 #                          every_nth_frame=60)
 
-# specific_number_dataset_from_project_database('/Volumes/Gold/Datasets/World Expo/World Expo Database',
-#                              '/Volumes/Gold/Datasets/World Expo/Unlabeled World Expo Datasets/All Cameras All Images',
-#                              '/Volumes/Gold/Datasets/World Expo/train_only.json', None, None)
+# specific_number_dataset_from_project_database('/Volumes/Gold/crowd/datasets/World Expo/World Expo Database',
+#                              '/Volumes/Gold/crowd/datasets/World Expo/Unlabeled World Expo Datasets/All Cameras All Images',
+#                              '/Volumes/Gold/crowd/datasets/World Expo/train_only.json', None, None)
 
-specific_number_dataset_from_project_database_using_target_unlabeled(
-    '/mnt/Gold/data/World Expo', '/mnt/Gold/data/World Expo Datasets/5 Camera 5 Images Target Unlabeled',
-    '/mnt/Gold/data/World Expo/viable_with_validation_and_test.json', number_of_cameras=5, number_of_images_per_camera=5
-)
+for camera_count in [5, 1, 3, 10, 20]:
+    for image_count in [5, 1, 3, 10, 20]:
+        print('Processing {} Camera {} Images...'.format(camera_count, image_count))
+        specific_number_dataset_from_project_database_using_target_unlabeled_numpy(
+            '/media/root/Gold/crowd/data/World Expo', '/media/root/Gold/crowd/data/World Expo Datasets/{} Camera {} Images Target Unlabeled'.format(camera_count, image_count),
+            '/media/root/Gold/crowd/data/World Expo/viable_with_validation_and_random_test.json', number_of_cameras=camera_count, number_of_images_per_camera=image_count, remove_test_and_validation=True
+        )
+
+# specific_number_dataset_from_project_database_using_target_unlabeled_numpy(
+#     '/media/root/Gold/crowd/data/World Expo', '/media/root/Gold/crowd/data/World Expo Datasets/Test And Validation',
+#     '/media/root/Gold/crowd/data/World Expo/viable_with_validation_and_random_test.json', number_of_cameras=1, number_of_images_per_camera=1, remove_test_and_validation=False
+# )
